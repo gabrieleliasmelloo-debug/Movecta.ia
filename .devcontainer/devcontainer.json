@@ -1,33 +1,32 @@
 {
-  "name": "Python 3",
-  // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+  "name": "Movecta.IA",
   "image": "mcr.microsoft.com/devcontainers/python:1-3.11-bookworm",
   "customizations": {
     "codespaces": {
       "openFiles": [
-        "README.md",
-        "Movecta_IA/app.py"
+        "Movecta_IA/app.py",
+        "Movecta_IA/README.md"
       ]
     },
     "vscode": {
-      "settings": {},
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      },
       "extensions": [
         "ms-python.python",
         "ms-python.vscode-pylance"
       ]
     }
   },
-  "updateContentCommand": "[ -f packages.txt ] && sudo apt update && sudo apt upgrade -y && sudo xargs apt install -y <packages.txt; [ -f requirements.txt ] && pip3 install --user -r requirements.txt; pip3 install --user streamlit; echo '✅ Packages installed and Requirements met'",
+  "updateContentCommand": "python -m pip install --upgrade pip && python -m pip install -r Movecta_IA/requirements.txt",
   "postAttachCommand": {
-    "server": "streamlit run Movecta_IA/app.py --server.enableCORS false --server.enableXsrfProtection false"
+    "server": "streamlit run Movecta_IA/app.py --server.address 0.0.0.0 --server.port 8501"
   },
   "portsAttributes": {
     "8501": {
-      "label": "Application",
+      "label": "Movecta.IA",
       "onAutoForward": "openPreview"
     }
   },
-  "forwardPorts": [
-    8501
-  ]
+  "forwardPorts": [8501]
 }
