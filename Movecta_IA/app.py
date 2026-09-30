@@ -1,8 +1,10 @@
 from pathlib import Path
 import os
 import re
+import time
+import uuid
 
-import google.generativeai as genai
+import requests
 import streamlit as st
 
 
@@ -10,7 +12,8 @@ BASE_DIR = Path(__file__).parent
 KNOWLEDGE_DIR = BASE_DIR / "knowledge_base"
 ROLE_LABELS = {"manager": "Gerentes", "employee": "Funcionários"}
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".csv", ".json"}
-MODEL_NAME = "gemini-flash-lite-latest"
+DIRECT_LINE_BASE_URL = "https://directline.botframework.com/v3/directline"
+COPILOT_CONTEXT_EVENT = "movecta_context"
 APP_LOGO_PATH = BASE_DIR / "assets" / "movecta-logo.png"
 
 
@@ -251,23 +254,161 @@ with brand_column:
         unsafe_allow_html=True,
     )
 
-api_key = os.getenv("GEMINI_API_KEY")
-secrets_file = BASE_DIR / ".streamlit" / "secrets.toml"
-if not api_key and secrets_file.exists():
-    for line in secrets_file.read_text(encoding="utf-8").splitlines():
-        name, separator, value = line.partition("=")
-        if separator and name.strip() == "GEMINI_API_KEY":
-            api_key = value.strip().strip('"').strip("'")
-            break
-if not api_key:
+def get_secret(name):
+    value = os.getenv(name)
+    if value:
+        return value
+
+    secrets_file = BASE_DIR / ".streamlit" / "secrets.toml"
+    if secrets_file.exists():
+        for line in secrets_file.read_text(encoding="utf-8").splitlines():
+            key, separator, raw_value = line.partition("=")
+            if separator and key.strip() == name:
+                return raw_value.strip().strip('"').strip("'")
+
     try:
-        api_key = st.secrets.get("GEMINI_API_KEY")
-    except FileNotFoundError:
-        api_key = None
-if not api_key:
-    st.error("Configure GEMINI_API_KEY nos secrets do Streamlit ou nas variáveis de ambiente.")
+        return st.secrets.get(name)
+    except (FileNotFoundError, KeyError):
+        return None
+
+
+COPILOT_TOKEN_ENDPOINT = get_secret("COPILOT_TOKEN_ENDPOINT")
+if not COPILOT_TOKEN_ENDPOINT:
+    st.error(
+        "Configure COPILOT_TOKEN_ENDPOINT nos secrets do Streamlit ou nas variáveis de ambiente. "
+        "No Copilot Studio, copie o Token Endpoint em Canais > Aplicativo móvel."
+    )
     st.stop()
-genai.configure(api_key=api_key)
+
+
+def direct_line_headers(token):
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+
+
+def create_copilot_session(role, knowledge):
+    token_response = requests.get(COPILOT_TOKEN_ENDPOINT, timeout=30)
+    token_response.raise_for_status()
+    token_data = token_response.json()
+
+    token = token_data["token"]
+    conversation_id = token_data.get("conversationId")
+
+    if not conversation_id:
+        conversation_response = requests.post(
+            f"{DIRECT_LINE_BASE_URL}/conversations",
+            headers=direct_line_headers(token),
+            timeout=30,
+        )
+        conversation_response.raise_for_status()
+        conversation_data = conversation_response.json()
+        conversation_id = conversation_data["conversationId"]
+        token = conversation_data.get("token", token)
+
+    return {
+        "token": token,
+        "conversation_id": conversation_id,
+        "watermark": None,
+        "user_id": f"movecta-streamlit-{uuid.uuid4()}",
+        "context_sent": False,
+        "role": role,
+        "knowledge": knowledge,
+    }
+
+
+def post_direct_line_activity(session, activity):
+    response = requests.post(
+        f"{DIRECT_LINE_BASE_URL}/conversations/{session['conversation_id']}/activities",
+        headers=direct_line_headers(session["token"]),
+        json=activity,
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def send_context_event(session):
+    if session.get("context_sent"):
+        return
+
+    post_direct_line_activity(
+        session,
+        {
+            "type": "event",
+            "name": COPILOT_CONTEXT_EVENT,
+            "from": {"id": session["user_id"]},
+            "value": {
+                "role": session["role"],
+                "role_label": ROLE_LABELS[session["role"]],
+                "knowledge": session["knowledge"],
+            },
+        },
+    )
+    session["context_sent"] = True
+
+
+def read_copilot_activities(session):
+    params = {}
+    if session.get("watermark") is not None:
+        params["watermark"] = session["watermark"]
+
+    response = requests.get(
+        f"{DIRECT_LINE_BASE_URL}/conversations/{session['conversation_id']}/activities",
+        headers=direct_line_headers(session["token"]),
+        params=params,
+        timeout=30,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    session["watermark"] = payload.get("watermark", session.get("watermark"))
+    return payload.get("activities", [])
+
+
+def send_message_to_copilot(session, prompt):
+    send_context_event(session)
+
+    post_direct_line_activity(
+        session,
+        {
+            "type": "message",
+            "from": {"id": session["user_id"]},
+            "text": prompt,
+            "locale": "pt-BR",
+        },
+    )
+
+    collected = []
+    seen = set()
+
+    for _ in range(12):
+        for activity in read_copilot_activities(session):
+            activity_id = activity.get("id")
+            if activity_id in seen:
+                continue
+            if activity_id:
+                seen.add(activity_id)
+
+            if activity.get("type") != "message":
+                continue
+            if activity.get("from", {}).get("id") == session["user_id"]:
+                continue
+
+            text = (activity.get("text") or "").strip()
+            if text:
+                collected.append(text)
+
+        if collected:
+            break
+        time.sleep(0.5)
+
+    if not collected:
+        raise RuntimeError("O agente não retornou uma mensagem de texto.")
+
+    return "\n\n".join(collected)
+
+
 
 with st.sidebar:
     st.markdown('<div class="sidebar-logo">', unsafe_allow_html=True)
@@ -309,22 +450,19 @@ st.markdown(
 with action_column:
     change_role = st.button("Trocar área", use_container_width=True)
 if change_role:
-    for key in ("role", "chat_session", "messages"):
+    for key in ("role", "copilot_session", "messages", "context_signature"):
         st.session_state.pop(key, None)
     st.rerun()
 
 knowledge = read_knowledge(role)
-model = genai.GenerativeModel(
-    model_name=MODEL_NAME,
-    system_instruction=build_system_instruction(role, knowledge),
-    generation_config={"temperature": 0.2, "max_output_tokens": 320},
-)
-if st.session_state.get("model_name") != MODEL_NAME:
-    st.session_state.pop("chat_session", None)
+context_signature = f"{role}:{hash(knowledge)}"
+if st.session_state.get("context_signature") != context_signature:
+    st.session_state.pop("copilot_session", None)
     st.session_state.pop("messages", None)
-    st.session_state.model_name = MODEL_NAME
-if "chat_session" not in st.session_state:
-    st.session_state.chat_session = model.start_chat(history=[])
+    st.session_state.context_signature = context_signature
+
+if "copilot_session" not in st.session_state:
+    st.session_state.copilot_session = create_copilot_session(role, knowledge)
     st.session_state.messages = [{"role": "model", "content": "Olá! Sou a Movecta.IA. Como posso ajudar você hoje?"}]
 
 for message in st.session_state.messages:
@@ -341,16 +479,11 @@ if prompt := st.chat_input("Digite sua dúvida aqui..."):
         st.markdown(prompt)
     with st.chat_message("model", avatar="🟠"):
         try:
-            response_stream = st.session_state.chat_session.send_message(prompt, stream=True)
-
-            def response_chunks():
-                for response_chunk in response_stream:
-                    if response_chunk.text:
-                        yield response_chunk.text
-
-            answer = st.write_stream(response_chunks())
+            with st.spinner("Consultando a Movecta.IA..."):
+                answer = send_message_to_copilot(st.session_state.copilot_session, prompt)
+            st.markdown(answer)
         except Exception as error:
             error_message = str(error).split("\n", 1)[0]
-            answer = f"Não consegui consultar o Gemini agora. Detalhe: {error_message}"
+            answer = f"Não consegui consultar o agente do Copilot Studio agora. Detalhe: {error_message}"
             st.markdown(answer)
     st.session_state.messages.append({"role": "model", "content": answer})
