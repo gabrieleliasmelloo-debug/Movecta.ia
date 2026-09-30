@@ -5,3 +5,7 @@ backgroundColor = "#F5F8FA"
 secondaryBackgroundColor = "#FFFFFF"
 textColor = "#12364B"
 font = "sans serif"
+
+[server]
+maxUploadSize = 2
+headless = true
