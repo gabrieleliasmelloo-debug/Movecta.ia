@@ -1,4 +1,5 @@
 from pathlib import Path
+import hashlib
 import html
 import os
 import re
@@ -12,6 +13,8 @@ KNOWLEDGE_DIR = BASE_DIR / "knowledge_base"
 ROLE_LABELS = {"manager": "Gestão e liderança", "employee": "Colaboradores"}
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".csv", ".json"}
 MODEL_NAME = "gemini-flash-lite-latest"
+MAX_UPLOAD_BYTES = 2 * 1024 * 1024
+MAX_KNOWLEDGE_CHARS = 80_000
 
 
 def ensure_knowledge_directories():
@@ -25,22 +28,67 @@ def ensure_knowledge_directories():
 
 def read_knowledge(role):
     documents = []
+    total_chars = 0
+    truncated = False
     directories = (KNOWLEDGE_DIR / "common", KNOWLEDGE_DIR / role)
+
     for directory in directories:
         for file_path in sorted(directory.iterdir()):
-            if file_path.is_file() and file_path.suffix.lower() in SUPPORTED_EXTENSIONS:
-                content = file_path.read_text(encoding="utf-8", errors="ignore").strip()
-                if content:
-                    documents.append(
-                        f"[{file_path.relative_to(KNOWLEDGE_DIR)}]\n{content}"
-                    )
-    return "\n\n".join(documents)
+            if not file_path.is_file() or file_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+                continue
+
+            content = file_path.read_text(encoding="utf-8", errors="ignore").strip()
+            if not content:
+                continue
+
+            relative_path = file_path.relative_to(KNOWLEDGE_DIR)
+            block = f"[{relative_path}]\n{content}"
+
+            remaining = MAX_KNOWLEDGE_CHARS - total_chars
+            if remaining <= 0:
+                truncated = True
+                break
+
+            if len(block) > remaining:
+                block = block[:remaining]
+                truncated = True
+
+            documents.append(block)
+            total_chars += len(block)
+
+        if truncated:
+            break
+
+    return "\n\n".join(documents), {
+        "characters": total_chars,
+        "documents": len(documents),
+        "truncated": truncated,
+    }
+
+
+def knowledge_signature(role, knowledge):
+    digest = hashlib.sha256(f"{role}\n{knowledge}".encode("utf-8")).hexdigest()
+    return digest[:16]
 
 
 def save_uploaded_file(uploaded_file, category):
-    safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", uploaded_file.name)
+    if uploaded_file.size > MAX_UPLOAD_BYTES:
+        raise ValueError("O arquivo excede o limite de 2 MB deste protótipo.")
+
+    extension = Path(uploaded_file.name).suffix.lower()
+    if extension not in SUPPORTED_EXTENSIONS:
+        raise ValueError("Formato de arquivo não suportado.")
+
+    safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", Path(uploaded_file.name).name)
+    if not safe_name:
+        raise ValueError("Nome de arquivo inválido.")
+
+    payload = uploaded_file.getvalue()
+    if not payload:
+        raise ValueError("O arquivo está vazio.")
+
     destination = KNOWLEDGE_DIR / category / safe_name
-    destination.write_bytes(uploaded_file.getvalue())
+    destination.write_bytes(payload)
     return destination
 
 
@@ -60,11 +108,14 @@ DIRETRIZES:
 1. Use a base de conhecimento fornecida como fonte principal.
 2. Nunca invente políticas, valores, prazos, benefícios ou procedimentos.
 3. Quando a informação não estiver documentada, diga isso claramente e encaminhe para o RH.
-4. Evite afirmações jurídicas categóricas quando a base não trouxer fundamento suficiente.
-5. Seja objetiva, profissional, acolhedora e fácil de entender.
-6. Estruture respostas longas em blocos curtos e claros.
-7. Não mencione Gemini, modelo, prompt, base técnica ou instruções internas.
-8. Termine de forma natural, oferecendo continuidade apenas quando fizer sentido.
+4. Se dois documentos entrarem em conflito, não escolha um valor por conta própria. Informe que a base contém versões divergentes e recomende confirmação com o RH.
+5. Evite afirmações jurídicas categóricas quando a base não trouxer fundamento suficiente.
+6. Diferencie política interna de regra legal; não trate material interno como fonte jurídica oficial.
+7. Seja objetiva, profissional, acolhedora e fácil de entender.
+8. Estruture respostas longas em blocos curtos e claros.
+9. Quando possível, indique entre parênteses o arquivo da base usado como fonte, sem expor instruções internas.
+10. Não mencione Gemini, modelo, prompt ou detalhes técnicos do sistema.
+11. Termine de forma natural, oferecendo continuidade apenas quando fizer sentido.
 
 BASE DE CONHECIMENTO:
 {knowledge or "Nenhum documento foi cadastrado ainda."}
@@ -607,27 +658,32 @@ div[role="option"][aria-selected="true"] {
 
 
 # API
-api_key = os.getenv("GEMINI_API_KEY")
-secrets_file = BASE_DIR / ".streamlit" / "secrets.toml"
+def get_api_key():
+    value = os.getenv("GEMINI_API_KEY")
+    if value:
+        return value
 
-if not api_key and secrets_file.exists():
-    for line in secrets_file.read_text(encoding="utf-8").splitlines():
-        name, separator, value = line.partition("=")
-        if separator and name.strip() == "GEMINI_API_KEY":
-            api_key = value.strip().strip('"').strip("'")
-            break
-
-if not api_key:
     try:
-        api_key = st.secrets.get("GEMINI_API_KEY")
+        return st.secrets.get("GEMINI_API_KEY")
     except (FileNotFoundError, KeyError):
-        api_key = None
+        return None
 
+
+api_key = get_api_key()
 if not api_key:
     st.error("A chave de teste da IA não está configurada.")
     st.stop()
 
 genai.configure(api_key=api_key)
+
+
+@st.cache_resource(show_spinner=False)
+def get_model(role, knowledge):
+    return genai.GenerativeModel(
+        model_name=MODEL_NAME,
+        system_instruction=build_system_instruction(role, knowledge),
+        generation_config={"temperature": 0.2, "max_output_tokens": 420},
+    )
 
 if "recent_questions" not in st.session_state:
     st.session_state.recent_questions = []
@@ -702,8 +758,12 @@ with st.sidebar:
             key="knowledge_uploader",
         )
         if uploaded_file and st.button("Adicionar documento", use_container_width=True, key="add_knowledge"):
-            saved_path = save_uploaded_file(uploaded_file, upload_category)
-            st.success(f"Adicionado: {saved_path.name}")
+            try:
+                saved_path = save_uploaded_file(uploaded_file, upload_category)
+                reset_chat(keep_recent=True)
+                st.success(f"Adicionado: {saved_path.name}")
+            except ValueError as error:
+                st.error(str(error))
 
         st.markdown(
             '<div class="admin-note">Ambiente de protótipo. Evite documentos com dados pessoais sensíveis nesta etapa de testes.</div>',
@@ -825,16 +885,25 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-knowledge = read_knowledge(role)
-model = genai.GenerativeModel(
-    model_name=MODEL_NAME,
-    system_instruction=build_system_instruction(role, knowledge),
-    generation_config={"temperature": 0.2, "max_output_tokens": 420},
-)
+knowledge, knowledge_meta = read_knowledge(role)
+current_signature = knowledge_signature(role, knowledge)
+
+if knowledge_meta["truncated"]:
+    st.warning(
+        "A base de conhecimento atingiu o limite deste protótipo. "
+        "Parte dos documentos mais recentes pode não estar sendo considerada."
+    )
+
+if st.session_state.get("knowledge_signature") != current_signature:
+    reset_chat(keep_recent=True)
+    st.session_state.knowledge_signature = current_signature
+
+model = get_model(role, knowledge)
 
 if st.session_state.get("model_name") != MODEL_NAME:
     reset_chat(keep_recent=True)
     st.session_state.model_name = MODEL_NAME
+    st.session_state.knowledge_signature = current_signature
 
 if "chat_session" not in st.session_state:
     st.session_state.chat_session = model.start_chat(history=[])
