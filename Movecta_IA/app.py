@@ -76,7 +76,7 @@ BASE DE CONHECIMENTO:
 """
 
 
-st.set_page_config(page_title="Movecta.IA - RH", page_icon="🏢")
+st.set_page_config(page_title="Movecta.IA | Assistente de RH", page_icon="💬", layout="wide", initial_sidebar_state="expanded")
 ensure_knowledge_directories()
 st.markdown(
     """
@@ -240,6 +240,125 @@ st.markdown(
     [data-testid="stHorizontalBlock"] > div:has(.role-card) .stButton > button {
         margin-top: 14px !important;
     }
+
+    /* refinamento visual - interface profissional */
+    [data-testid="stMainBlockContainer"] {
+        max-width: 1180px !important;
+        padding-top: 1.15rem !important;
+        padding-bottom: 7rem !important;
+    }
+    [data-testid="stSidebar"] {
+        min-width: 300px !important;
+        max-width: 300px !important;
+        background:
+            linear-gradient(180deg, #075f9f 0%, #0879c9 55%, #0b6ead 100%) !important;
+        box-shadow: 8px 0 28px rgba(12, 52, 77, 0.08);
+    }
+    [data-testid="stSidebarContent"] { padding: 1.1rem 1rem 1.5rem !important; }
+    .app-shell-header {
+        display:flex; align-items:center; justify-content:space-between; gap:18px;
+        padding: 14px 18px; margin-bottom: 18px; border:1px solid #e4eaf0;
+        background:rgba(255,255,255,.92); border-radius:16px;
+        box-shadow:0 8px 28px rgba(21,56,78,.06);
+    }
+    .app-shell-brand { display:flex; align-items:center; gap:12px; }
+    .brand-mark {
+        width:42px; height:42px; border-radius:12px; display:grid; place-items:center;
+        background:linear-gradient(135deg,#0879c9,#055f9f); color:white !important;
+        font-weight:900; font-size:17px; box-shadow:0 6px 14px rgba(8,121,201,.22);
+    }
+    .app-shell-brand strong { display:block; color:#15384d !important; font-size:16px; line-height:1.1; }
+    .app-shell-brand small { color:#71828d !important; font-size:11px; }
+    .test-badge {
+        padding:7px 10px; border-radius:999px; background:#f0f7fb; border:1px solid #d8e9f4;
+        color:#27617f !important; font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
+        white-space:nowrap;
+    }
+    .hero {
+        position:relative; overflow:hidden; padding:34px 36px; border-radius:22px;
+        background:linear-gradient(135deg,#ffffff 0%,#f5fbff 55%,#eef8ff 100%);
+        border:1px solid #dfeaf1; box-shadow:0 16px 40px rgba(23,43,58,.07);
+        margin-bottom:22px;
+    }
+    .hero:after {
+        content:""; position:absolute; right:-70px; top:-95px; width:260px; height:260px;
+        border-radius:50%; background:radial-gradient(circle,#b7f34a55 0%,#b7f34a00 68%);
+    }
+    .hero-kicker { color:#0879c9 !important; font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:1.4px; }
+    .hero h1 { color:#163b52 !important; font-size:34px !important; margin:8px 0 10px !important; line-height:1.15; }
+    .hero p { color:#657984 !important; max-width:720px; font-size:14px; line-height:1.65; margin:0 !important; }
+    .hero-trust {
+        display:flex; gap:10px; flex-wrap:wrap; margin-top:18px;
+    }
+    .hero-chip {
+        font-size:11px; color:#466475 !important; padding:7px 10px; border-radius:999px;
+        border:1px solid #dfe9ee; background:#ffffffaa;
+    }
+    .section-title { margin:4px 0 12px; color:#344f5f !important; font-size:12px; font-weight:800; letter-spacing:.2px; }
+    .role-card {
+        min-height:190px; padding:26px !important; border-radius:18px !important;
+        border:1px solid #e1e8ed !important; box-shadow:0 10px 28px rgba(23,43,58,.055) !important;
+        transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .role-card:hover {
+        transform:translateY(-2px); box-shadow:0 16px 34px rgba(23,43,58,.09) !important; border-color:#c8dde9 !important;
+    }
+    .role-icon {
+        width:48px !important; height:48px !important; border-radius:14px !important;
+        font-size:20px !important; margin-bottom:20px !important;
+    }
+    .role-card strong { font-size:19px !important; }
+    .role-card span { line-height:1.5; }
+    .role-meta { margin-top:14px; font-size:11px; color:#7a8b95 !important; }
+    .chat-context {
+        border:1px solid #e2e9ed !important; border-radius:16px; padding:14px 16px !important;
+        background:white; box-shadow:0 7px 22px rgba(23,43,58,.045); margin-bottom:18px !important;
+    }
+    .chat-context-icon { border-radius:12px !important; width:42px !important; height:42px !important; }
+    .chat-context .context-meta { margin-left:auto; color:#84939c !important; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; }
+    .chat-wrap-label {
+        font-size:10px; font-weight:800; color:#7b8c96 !important; text-transform:uppercase; letter-spacing:1.2px;
+        margin:2px 0 12px;
+    }
+    [data-testid="stChatMessage"] {
+        border-radius:18px !important; padding:12px 15px !important;
+        box-shadow:0 5px 16px rgba(23,43,58,.045);
+    }
+    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+        background:#ffffff !important; border-color:#e1e8ed !important;
+    }
+    [data-testid="stChatMessage"]:has(.user-message-marker) {
+        background:linear-gradient(135deg,#0879c9,#0669ae) !important;
+        box-shadow:0 8px 18px rgba(8,121,201,.16);
+    }
+    [data-testid="stChatInput"] {
+        border-radius:18px !important; border:1px solid #d9e3e9 !important;
+        box-shadow:0 12px 30px rgba(23,43,58,.10) !important;
+        padding:7px 9px !important;
+    }
+    [data-testid="stBottom"] { padding-bottom:14px !important; }
+    .sidebar-card {
+        margin:10px 0 14px; padding:12px 13px; border-radius:12px; background:#ffffff14;
+        border:1px solid #ffffff25;
+    }
+    .sidebar-card strong { display:block; font-size:12px; color:#fff !important; margin-bottom:4px; }
+    .sidebar-card span { font-size:10px; color:#d8ecf8 !important; line-height:1.45; display:block; }
+    .sidebar-label {
+        color:#cce8f7 !important; font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:1.3px;
+        margin:18px 0 8px;
+    }
+    .security-note {
+        margin-top:16px; padding-top:14px; border-top:1px solid #ffffff26;
+        color:#d5eaf6 !important; font-size:9px; line-height:1.5;
+    }
+    @media (max-width: 900px) {
+        [data-testid="stMainBlockContainer"] { padding-left:1rem !important; padding-right:1rem !important; }
+        .hero { padding:24px 22px; }
+        .hero h1 { font-size:27px !important; }
+        .app-shell-header { padding:12px 14px; }
+        .test-badge { display:none; }
+    }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -286,16 +405,16 @@ with st.sidebar:
 
 if "role" not in st.session_state:
     st.markdown(
-        '<div class="welcome-panel"><div class="welcome-kicker">Movecta IA • Atendimento interno</div><h1>Como podemos ajudar?</h1><p>Escolha sua área para receber respostas no contexto certo da Movecta.</p></div>',
+        '<div class="hero"><div class="hero-kicker">Movecta.IA • Atendimento interno</div><h1>Seu ponto de partida para dúvidas de RH.</h1><p>Uma experiência de atendimento simples, rápida e orientada ao contexto de cada colaborador. Para começar, selecione abaixo o perfil que melhor representa seu acesso.</p><div class="hero-trust"><span class="hero-chip">Respostas com contexto</span><span class="hero-chip">Base interna Movecta</span><span class="hero-chip">Atendimento em português</span></div></div>',
         unsafe_allow_html=True,
     )
     manager_column, employee_column = st.columns(2)
     manager_column.markdown('<div class="role-card manager"><div class="role-icon">◈</div><strong>Área dos gerentes</strong><span>Políticas, liderança e processos de gestão.</span></div>', unsafe_allow_html=True)
     employee_column.markdown('<div class="role-card"><div class="role-icon">◉</div><strong>Área dos funcionários</strong><span>Direitos, benefícios e rotinas do colaborador.</span></div>', unsafe_allow_html=True)
-    if manager_column.button("Entrar como gerente", use_container_width=True):
+    if manager_column.button("Acessar área de gestão", use_container_width=True):
         st.session_state.role = "manager"
         st.rerun()
-    if employee_column.button("Entrar como funcionário", use_container_width=True):
+    if employee_column.button("Acessar área do colaborador", use_container_width=True):
         st.session_state.role = "employee"
         st.rerun()
     st.stop()
@@ -307,7 +426,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 with action_column:
-    change_role = st.button("Trocar área", use_container_width=True)
+    change_role = st.button("Trocar perfil", use_container_width=True)
 if change_role:
     for key in ("role", "chat_session", "messages"):
         st.session_state.pop(key, None)
@@ -328,18 +447,18 @@ if "chat_session" not in st.session_state:
     st.session_state.messages = [{"role": "model", "content": "Olá! Sou a Movecta.IA. Como posso ajudar você hoje?"}]
 
 for message in st.session_state.messages:
-    avatar = "🟠" if message["role"] == "model" else "👤"
+    avatar = "🤖" if message["role"] == "model" else "👤"
     with st.chat_message(message["role"], avatar=avatar):
         if message["role"] == "user":
             st.markdown('<span class="user-message-marker"></span>', unsafe_allow_html=True)
         st.markdown(message["content"])
 
-if prompt := st.chat_input("Digite sua dúvida aqui..."):
+if prompt := st.chat_input("Pergunte sobre benefícios, férias, políticas ou processos de RH..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="👤"):
         st.markdown('<span class="user-message-marker"></span>', unsafe_allow_html=True)
         st.markdown(prompt)
-    with st.chat_message("model", avatar="🟠"):
+    with st.chat_message("model", avatar="🤖"):
         try:
             response_stream = st.session_state.chat_session.send_message(prompt, stream=True)
 
