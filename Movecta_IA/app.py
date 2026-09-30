@@ -104,8 +104,32 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMainBlockContain
     background: var(--page) !important;
     color-scheme: light !important;
 }
-.stApp, .stApp * {
+.stApp {
     font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+.stApp :not([data-testid="stIconMaterial"]):not(.material-symbols-rounded):not(.material-icons) {
+    font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+
+/* Preserve Streamlit's Material Symbols icons.
+   Without this, icon ligatures render as raw text such as keyboard_double_arrow. */
+[data-testid="stIconMaterial"],
+.material-symbols-rounded,
+.material-icons,
+[data-testid="stSidebarCollapseButton"] span,
+[data-testid="collapsedControl"] span {
+    font-family: "Material Symbols Rounded", "Material Icons" !important;
+    font-weight: normal !important;
+    font-style: normal !important;
+    line-height: 1 !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    white-space: nowrap !important;
+    word-wrap: normal !important;
+    direction: ltr !important;
+    -webkit-font-feature-settings: "liga" !important;
+    font-feature-settings: "liga" !important;
+    -webkit-font-smoothing: antialiased !important;
 }
 [data-testid="stHeader"] { background: transparent !important; }
 [data-testid="stMainBlockContainer"] {
@@ -379,8 +403,70 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMainBlockContain
 }
 
 /* Upload */
-[data-testid="stFileUploader"] section { border-radius:12px !important; }
+[data-testid="stFileUploader"] section {
+    border-radius:12px !important;
+    overflow:hidden !important;
+    min-width:0 !important;
+}
+[data-testid="stFileUploader"] section > div,
+[data-testid="stFileUploader"] section label,
+[data-testid="stFileUploader"] section span,
+[data-testid="stFileUploader"] section small {
+    max-width:100% !important;
+}
+[data-testid="stFileUploader"] section small {
+    display:block !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    white-space:nowrap !important;
+}
 [data-baseweb="select"] > div { border-radius:11px !important; }
+
+/* Sidebar visual safety */
+[data-testid="stSidebar"] [data-testid="stExpander"] {
+    border:1px solid rgba(255,255,255,.13) !important;
+    border-radius:12px !important;
+    overflow:hidden !important;
+    background:rgba(255,255,255,.045) !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+    min-height:44px !important;
+    padding:0 10px !important;
+    overflow:hidden !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary p {
+    font-size:11px !important;
+    font-weight:700 !important;
+    line-height:1.25 !important;
+    margin:0 !important;
+    white-space:normal !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary [data-testid="stIconMaterial"] {
+    flex:0 0 auto !important;
+    font-size:20px !important;
+}
+[data-testid="stSidebarCollapseButton"],
+[data-testid="collapsedControl"] {
+    overflow:hidden !important;
+}
+[data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"],
+[data-testid="collapsedControl"] [data-testid="stIconMaterial"] {
+    font-size:24px !important;
+    width:24px !important;
+    height:24px !important;
+    overflow:hidden !important;
+}
+[data-testid="stSidebar"] button {
+    overflow:hidden !important;
+}
+[data-testid="stSidebar"] button [data-testid="stIconMaterial"] {
+    flex:0 0 auto !important;
+}
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span {
+    overflow-wrap:anywhere;
+}
 
 @media (max-width: 920px) {
     [data-testid="stMainBlockContainer"] { padding-left:1rem !important; padding-right:1rem !important; }
