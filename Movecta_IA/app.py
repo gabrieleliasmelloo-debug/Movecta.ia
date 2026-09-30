@@ -468,6 +468,130 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMainBlockContain
     overflow-wrap:anywhere;
 }
 
+
+/* Hardening against browser/Streamlit dark mode */
+html, body, .stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"],
+[data-testid="stBottom"],
+[data-testid="stBottom"] > div,
+[data-testid="stBottomBlockContainer"] {
+    background-color: var(--page) !important;
+    color: var(--blue-ink) !important;
+    color-scheme: light !important;
+}
+[data-testid="stAppViewContainer"] *,
+[data-testid="stMain"] * {
+    scrollbar-color: #bfd1dc #eef3f6;
+}
+[data-testid="stMarkdownContainer"],
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stCaptionContainer"] {
+    color: inherit;
+}
+input, textarea,
+[data-baseweb="input"] input,
+[data-baseweb="textarea"] textarea,
+[data-baseweb="select"] > div,
+[data-baseweb="base-input"] {
+    background-color:#ffffff !important;
+    color:#15384d !important;
+    caret-color:#15384d !important;
+}
+input::placeholder, textarea::placeholder {
+    color:#82939d !important;
+    opacity:1 !important;
+}
+[data-baseweb="select"] svg,
+[data-baseweb="select"] [data-testid="stIconMaterial"] {
+    color:#46697c !important;
+    fill:#46697c !important;
+}
+div[role="listbox"],
+ul[role="listbox"],
+[data-baseweb="popover"] > div,
+[data-baseweb="menu"] {
+    background:#ffffff !important;
+    color:#15384d !important;
+    border-color:#dbe5eb !important;
+}
+div[role="option"] {
+    background:#ffffff !important;
+    color:#15384d !important;
+}
+div[role="option"]:hover,
+div[role="option"][aria-selected="true"] {
+    background:#edf7fc !important;
+    color:#075f9f !important;
+}
+[data-testid="stTooltipContent"],
+[data-baseweb="tooltip"] {
+    background:#173d54 !important;
+    color:#ffffff !important;
+}
+[data-testid="stFileUploader"] section {
+    background:#ffffff !important;
+    color:#15384d !important;
+    border:1px solid #d9e5eb !important;
+}
+[data-testid="stFileUploader"] section * {
+    color:#15384d !important;
+}
+[data-testid="stFileUploader"] button {
+    background:#f5f9fb !important;
+    color:#0b6ca9 !important;
+    border:1px solid #cbdde7 !important;
+}
+[data-testid="stFileUploader"] button:hover {
+    background:#eaf5fb !important;
+    color:#075f9f !important;
+}
+[data-testid="stAlert"] {
+    border-radius:12px !important;
+}
+
+/* Stable custom administration panel */
+.admin-panel-title {
+    margin:9px 1px 7px;
+    padding-top:10px;
+    border-top:1px solid rgba(255,255,255,.16);
+    color:#ffffff !important;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.5px;
+}
+[data-testid="stSidebar"] [data-testid="stSelectbox"] label,
+[data-testid="stSidebar"] [data-testid="stFileUploader"] label {
+    color:#eef8fc !important;
+    font-size:11px !important;
+}
+[data-testid="stSidebar"] [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+    min-height:42px !important;
+    background:#ffffff !important;
+    color:#15384d !important;
+    border:1px solid rgba(255,255,255,.55) !important;
+}
+[data-testid="stSidebar"] [data-testid="stSelectbox"] [data-baseweb="select"] > div * {
+    color:#15384d !important;
+}
+[data-testid="stSidebar"] [data-testid="stFileUploader"] section {
+    min-height:112px !important;
+    padding:12px !important;
+    background:#ffffff !important;
+    border:1px solid rgba(255,255,255,.55) !important;
+}
+[data-testid="stSidebar"] [data-testid="stFileUploader"] section > div {
+    gap:8px !important;
+}
+[data-testid="stSidebar"] [data-testid="stFileUploader"] section small {
+    color:#5c7380 !important;
+}
+[data-testid="stSidebar"] .stButton > button {
+    min-height:40px !important;
+}
+
 @media (max-width: 920px) {
     [data-testid="stMainBlockContainer"] { padding-left:1rem !important; padding-right:1rem !important; }
     .welcome-grid { grid-template-columns:1fr; }
@@ -507,6 +631,9 @@ genai.configure(api_key=api_key)
 
 if "recent_questions" not in st.session_state:
     st.session_state.recent_questions = []
+
+if "show_admin" not in st.session_state:
+    st.session_state.show_admin = False
 
 
 # Sidebar
@@ -551,7 +678,13 @@ with st.sidebar:
             )
 
     st.markdown('<div class="side-label">Administração</div>', unsafe_allow_html=True)
-    with st.expander("Base de conhecimento", expanded=False):
+    admin_label = "Fechar base de conhecimento" if st.session_state.show_admin else "Base de conhecimento"
+    if st.button(admin_label, use_container_width=True, key="toggle_admin"):
+        st.session_state.show_admin = not st.session_state.show_admin
+        st.rerun()
+
+    if st.session_state.show_admin:
+        st.markdown('<div class="admin-panel-title">Gerenciar documentos</div>', unsafe_allow_html=True)
         st.caption("Adicione documentos que serão considerados nas respostas.")
         upload_category = st.selectbox(
             "Disponível para",
@@ -561,12 +694,14 @@ with st.sidebar:
                 "manager": "Gestão",
                 "employee": "Colaboradores",
             }[value],
+            key="knowledge_category",
         )
         uploaded_file = st.file_uploader(
             "Novo documento",
             type=[extension[1:] for extension in SUPPORTED_EXTENSIONS],
+            key="knowledge_uploader",
         )
-        if uploaded_file and st.button("Adicionar documento", use_container_width=True):
+        if uploaded_file and st.button("Adicionar documento", use_container_width=True, key="add_knowledge"):
             saved_path = save_uploaded_file(uploaded_file, upload_category)
             st.success(f"Adicionado: {saved_path.name}")
 
