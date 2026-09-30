@@ -88,8 +88,28 @@ def save_uploaded_file(uploaded_file, category):
         raise ValueError("O arquivo está vazio.")
 
     destination = KNOWLEDGE_DIR / category / safe_name
+    if destination.exists():
+        stem = destination.stem
+        suffix = destination.suffix
+        counter = 2
+        while destination.exists():
+            destination = KNOWLEDGE_DIR / category / f"{stem}_{counter}{suffix}"
+            counter += 1
+
     destination.write_bytes(payload)
     return destination
+
+
+def get_knowledge_stats():
+    stats = {"common": 0, "manager": 0, "employee": 0}
+    for category in stats:
+        directory = KNOWLEDGE_DIR / category
+        stats[category] = sum(
+            1
+            for file_path in directory.iterdir()
+            if file_path.is_file() and file_path.suffix.lower() in SUPPORTED_EXTENSIONS
+        )
+    return stats
 
 
 def build_system_instruction(role, knowledge):
@@ -740,7 +760,12 @@ with st.sidebar:
         st.rerun()
 
     if st.session_state.show_admin:
+        stats = get_knowledge_stats()
         st.markdown('<div class="admin-panel-title">Gerenciar documentos</div>', unsafe_allow_html=True)
+        st.caption(
+            f"Base atual: {stats['common']} gerais, "
+            f"{stats['manager']} de gestão e {stats['employee']} de colaboradores."
+        )
         st.caption("Adicione documentos que serão considerados nas respostas.")
         upload_category = st.selectbox(
             "Disponível para",
@@ -944,7 +969,8 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 typed_prompt = st.chat_input(
-    "Pergunte sobre férias, benefícios, folha, políticas ou processos internos..."
+    "Pergunte sobre férias, benefícios, folha, políticas ou processos internos...",
+    max_chars=4000,
 )
 prompt = typed_prompt or quick_prompt
 
@@ -971,11 +997,10 @@ if prompt:
                             yield response_chunk.text
 
                 answer = st.write_stream(response_chunks())
-            except Exception as error:
-                error_message = str(error).split("\n", 1)[0]
+            except Exception:
                 answer = (
                     "Não consegui concluir a consulta agora. "
-                    f"Detalhe técnico: {error_message}"
+                    "Tente novamente em alguns instantes ou procure o RH se a dúvida for urgente."
                 )
                 st.markdown(answer)
 
